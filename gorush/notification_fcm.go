@@ -3,10 +3,22 @@ package gorush
 import (
 	"errors"
 	"fmt"
-
 	"github.com/appleboy/go-fcm"
 	"github.com/sirupsen/logrus"
+	"golang.org/x/net/http2"
+	"net/http"
+	"time"
 )
+
+func init() {
+	h2Transport, err := http2.ConfigureTransports(http.DefaultTransport.(*http.Transport))
+	if err != nil {
+		return
+	}
+	h2Transport.PingTimeout = 1 * time.Second
+	// avoid ErrCode=ENHANCE_YOUR_CALM (too many ping error)
+	h2Transport.ReadIdleTimeout = 5 * time.Second
+}
 
 // InitFCMClient use for initialize FCM Client.
 func InitFCMClient(key string) (*fcm.Client, error) {
@@ -15,7 +27,6 @@ func InitFCMClient(key string) (*fcm.Client, error) {
 	if key == "" {
 		return nil, errors.New("Missing Android API Key")
 	}
-
 	if key != PushConf.Android.APIKey {
 		return fcm.NewClient(key)
 	}
