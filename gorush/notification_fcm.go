@@ -5,21 +5,24 @@ import (
 	"fmt"
 	"github.com/appleboy/go-fcm"
 	"github.com/sirupsen/logrus"
+	"golang.org/x/net/http2"
 	"net/http"
 	"time"
 )
 
-const timeout = 3 * time.Second
-
-var (
-	httpClient *http.Client
-)
+var httpClient *http.Client
 
 func init() {
 	httpClient = &http.Client{
+		Timeout: 10 * time.Second,
 		Transport: &http.Transport{
-			DisableKeepAlives: true,
+			IdleConnTimeout: idleConnTimeout,
+			Proxy:           http.ProxyFromEnvironment,
 		},
+	}
+
+	if h2Transport, err := http2.ConfigureTransports(httpClient.Transport.(*http.Transport)); err == nil {
+		configureHTTP2ConnHealthCheck(h2Transport)
 	}
 }
 
@@ -31,11 +34,11 @@ func InitFCMClient(key string) (*fcm.Client, error) {
 		return nil, errors.New("Missing Android API Key")
 	}
 	if key != PushConf.Android.APIKey {
-		return fcm.NewClient(key, fcm.WithHTTPClient(httpClient), fcm.WithTimeout(timeout))
+		return fcm.NewClient(key, fcm.WithHTTPClient(httpClient))
 	}
 
 	if FCMClient == nil {
-		FCMClient, err = fcm.NewClient(key, fcm.WithHTTPClient(httpClient), fcm.WithTimeout(timeout))
+		FCMClient, err = fcm.NewClient(key, fcm.WithHTTPClient(httpClient))
 		return FCMClient, err
 	}
 	return FCMClient, nil
